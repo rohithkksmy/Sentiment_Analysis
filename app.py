@@ -19,7 +19,7 @@ chatbot = ChatBot(
 trainer = ChatterBotCorpusTrainer(chatbot)
 trainer.train('chatterbot.corpus.english')
 
-# Function for sentiment analysis
+# Function for sentiment analysis using TextBlob
 def get_sentiment(text):
     blob = TextBlob(text)
     sentiment_score = blob.sentiment.polarity
