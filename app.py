@@ -1,67 +1,89 @@
 import streamlit as st
-import openai
-import requests
-from bs4 import BeautifulSoup
 from transformers import pipeline
+from bs4 import BeautifulSoup
+import requests
 
-# Load OpenAI API Key
-openai.api_key = st.secrets["OPEN_AI"]
+# Initialize Hugging Face DialoGPT model for chat
+chatbot = pipeline("conversational", model="microsoft/DialoGPT-medium")
 
-# Cache Hugging Face sentiment model
-@st.cache_resource
-def load_sentiment_model():
-    return pipeline("sentiment-analysis", use_auth_token=st.secrets["HUGGINGFACE_TOKEN"])
+# Initialize sentiment analysis model (for mood detection)
+sentiment_analyzer = pipeline("sentiment-analysis")
 
-sentiment_analyzer = load_sentiment_model()
+# Function to get doctors from Practo (top 5)
+def fetch_doctors_live(specialist, city="chennai"):
+    url = f"https://www.practo.com/{city}/{specialist}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code != 200:
+            return ["Error fetching doctor data."]
+        soup = BeautifulSoup(res.text, "html.parser")
+        doctors = []
+        listings = soup.select(".listing-row")[:5]
+        for doc in listings:
+            name = doc.select_one("h2")
+            clinic = doc.select_one(".u-regular.u-color--grey-3")
+            fee = doc.select_one(".fees")
+            if name and clinic and fee:
+                doctors.append(f"{name.get_text(strip=True)} – {clinic.get_text(strip=True)} – {fee.get_text(strip=True)}")
+        return doctors if doctors else ["No doctors found."]
+    except Exception as e:
+        return [f"Error: {str(e)}"]
 
-# Initialize chat history
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [
-        {"role": "system", "content": "You are a compassionate mental health assistant. Gently ask questions to help users express their feelings."}
-    ]
+# Suggest specialist based on the detected sentiment or text
+def suggest_specialist(sentiment):
+    sentiment = sentiment.lower()
+    if "negative" in sentiment:
+        return "psychologist"
+    elif "positive" in sentiment:
+        return "general-physician"
+    return "general-physician"
 
-st.title("🧠 Mental Health Chatbot + Doctor Suggestion")
+# Streamlit chat interface
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# Chat input
-user_input = st.chat_input("You:")
+st.title("🧠 Real-Time Sentiment Chatbot with Live Doctor Search")
+
+# User input
+user_input = st.text_input("You:")
 
 if user_input:
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
-    with st.spinner("Thinking..."):
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",  # or "gpt-4" if you have access
-            messages=st.session_state.chat_history
-        )
-        bot_reply = response['choices'][0]['message']['content']
-        st.session_state.chat_history.append({"role": "assistant", "content": bot_reply})
+    st.session_state.messages.append({"role": "user", "message": user_input})
 
-# Display chat
-for msg in st.session_state.chat_history[1:]:  # Skip system prompt
+    # Use Hugging Face chatbot to generate a response
+    bot_message = chatbot(user_input)[0]["generated_text"]
+    
+    st.session_state.messages.append({"role": "bot", "message": bot_message})
+
+# Show chat messages
+for msg in st.session_state.messages:
     if msg["role"] == "user":
-        st.chat_message("user").write(msg["content"])
+        st.chat_message("user").write(msg["message"])
     else:
-        st.chat_message("assistant").write(msg["content"])
+        st.chat_message("assistant").markdown(msg["message"])
 
-# Submit and analyze full conversation
-if st.button("Submit and Analyze Conversation"):
-    full_text = " ".join(m["content"] for m in st.session_state.chat_history if m["role"] == "user")
-    sentiment = sentiment_analyzer(full_text)[0]
-    urgency = predict_urgency(full_text)
-    specialist = suggest_specialist(full_text, sentiment["label"])
-    doctors = fetch_doctors_live(specialist)
+# Add a Submit button to analyze sentiment and recommend doctor
+if st.button("Submit"):
+    # Concatenate user messages to analyze sentiment
+    user_text = " ".join([msg["message"] for msg in st.session_state.messages if msg["role"] == "user"])
 
-    urgency_note = ""
-    if urgency == "HIGH":
-        urgency_note = "**⚠️ URGENT: Please seek help immediately or call a crisis line.**\n\n"
-    elif urgency == "MEDIUM":
-        urgency_note = "**⚠️ Medium urgency detected. You should talk to a specialist soon.**\n\n"
+    # Analyze sentiment
+    sentiment = sentiment_analyzer(user_text)[0]
+    mood = sentiment["label"]
+    sentiment_score = sentiment["score"]
 
-    analysis_response = (
-        urgency_note +
-        f"**Sentiment:** {sentiment['label']} (Confidence: {sentiment['score']:.2f})\n\n"
-        f"**Recommended Specialist:** {specialist}\n\n"
-        f"**Top Doctors Near You:**\n- " + "\n- ".join(doctors)
-    )
-
-    st.session_state.chat_history.append({"role": "assistant", "content": analysis_response})
-    st.experimental_rerun()
+    # Suggest specialist based on sentiment
+    specialist = suggest_specialist(mood)
+    
+    # Fetch doctors based on suggested specialist
+    doctors = fetch_doctors_live(specialist, city="chennai")
+    
+    # Display results
+    st.write(f"**Mood:** {mood} (Sentiment Score: {sentiment_score:.2f})")
+    st.write(f"**Recommended Specialist:** {specialist}")
+    st.write(f"**Nearby Doctors:**")
+    for doctor in doctors:
+        st.write(f"- {doctor}")
