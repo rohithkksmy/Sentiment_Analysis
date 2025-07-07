@@ -8,7 +8,7 @@ import os
 from huggingface_hub import login
 
 # Hugging Face API Key setup (make sure your token is in secrets or environment variables)
-api_key = st.secrets["HUGGINGFACE_API_KEY"]
+api_key = st.secrets["HUGGINGFACE_TOKEN"]
 login(token=api_key)
 
 # Initialize Hugging Face DialoGPT model for chat using text-generation task
