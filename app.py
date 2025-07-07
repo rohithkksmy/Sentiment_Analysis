@@ -12,7 +12,7 @@ chatbot = ChatBot(
         'chatterbot.logic.MathematicalEvaluation',
         'chatterbot.logic.TimeLogicAdapter'
     ],
-    database_uri='sqlite:///database.db'  # Stores conversations locally
+    database_uri='sqlite:///./chatbot_database.db'  # Store the DB locally in current directory
 )
 
 # Train the chatbot with the English corpus
