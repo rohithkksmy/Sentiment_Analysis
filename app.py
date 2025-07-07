@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
 
-sentiment_analyzer = pipeline("sentiment-analysis")
+sentiment_analyzer = pipeline("sentiment-analysis", use_auth_token=st.secrets["HUGGINGFACE_TOKEN"])
 
 def fetch_doctors_live(specialist, city="chennai"):
     # Your fetching code here (same as before)
