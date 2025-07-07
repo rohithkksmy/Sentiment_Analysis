@@ -3,8 +3,8 @@ from transformers import pipeline
 from bs4 import BeautifulSoup
 import requests
 
-# Initialize Hugging Face DialoGPT model for chat
-chatbot = pipeline("conversational", model="microsoft/DialoGPT-medium")
+# Initialize Hugging Face DialoGPT model for chat using text-generation task
+chatbot = pipeline("text-generation", model="microsoft/DialoGPT-medium")
 
 # Initialize sentiment analysis model (for mood detection)
 sentiment_analyzer = pipeline("sentiment-analysis")
@@ -54,7 +54,7 @@ if user_input:
     st.session_state.messages.append({"role": "user", "message": user_input})
 
     # Use Hugging Face chatbot to generate a response
-    bot_message = chatbot(user_input)[0]["generated_text"]
+    bot_message = chatbot(user_input, max_length=50, num_return_sequences=1)[0]["generated_text"]
     
     st.session_state.messages.append({"role": "bot", "message": bot_message})
 
