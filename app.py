@@ -3,16 +3,17 @@ from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer
 from textblob import TextBlob
 
-# Create a new chatbot instance
+# Create a new chatbot instance (without spaCy logic)
 chatbot = ChatBot(
     'DoctorBot',
     storage_adapter='chatterbot.storage.SQLStorageAdapter',
     logic_adapters=[
-        'chatterbot.logic.BestMatch',
-        'chatterbot.logic.MathematicalEvaluation',
-        'chatterbot.logic.TimeLogicAdapter'
+        'chatterbot.logic.BestMatch',  # Keep BestMatch for simple responses
+        'chatterbot.logic.MathematicalEvaluation',  # For mathematical calculations (optional)
+        'chatterbot.logic.TimeLogicAdapter'  # Time-based responses (optional)
     ],
-    database_uri='sqlite:///./chatbot_database.db'  # Store the DB locally in current directory
+    database_uri='sqlite:///./chatbot_database.db',  # Store the DB locally in current directory
+    preprocessors=['chatterbot.preprocessors.clean_whitespace'],  # Clean input text before processing
 )
 
 # Train the chatbot with the English corpus
