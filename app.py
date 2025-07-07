@@ -4,8 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
 
-# Load your OpenAI key from Streamlit secrets
-openai.api_key = st.secrets["OPEN_AI"]
+# Load OpenAI API Key
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Cache Hugging Face sentiment model
 @st.cache_resource
@@ -28,8 +28,8 @@ user_input = st.chat_input("You:")
 if user_input:
     st.session_state.chat_history.append({"role": "user", "content": user_input})
     with st.spinner("Thinking..."):
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # or "gpt-4" if available
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",  # or "gpt-4" if you have access
             messages=st.session_state.chat_history
         )
         bot_reply = response['choices'][0]['message']['content']
