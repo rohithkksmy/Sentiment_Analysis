@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from transformers import pipeline
 
 # Load OpenAI API Key
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+openai.api_key = st.secrets["OPEN_AI"]
 
 # Cache Hugging Face sentiment model
 @st.cache_resource
