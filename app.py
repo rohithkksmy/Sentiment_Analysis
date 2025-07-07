@@ -4,8 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
 
-# Load keys
-openai.api_key = st.secrets["OPEN_AI"]
+# Load your OpenAI key from Streamlit secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Cache Hugging Face sentiment model
 @st.cache_resource
@@ -13,45 +13,6 @@ def load_sentiment_model():
     return pipeline("sentiment-analysis", use_auth_token=st.secrets["HUGGINGFACE_TOKEN"])
 
 sentiment_analyzer = load_sentiment_model()
-
-# Predict urgency
-def predict_urgency(text):
-    urgent_keywords = ["suicidal", "kill myself", "die", "hopeless", "urgent", "emergency", "end my life"]
-    text_lower = text.lower()
-    if any(word in text_lower for word in urgent_keywords):
-        return "HIGH"
-    sentiment = sentiment_analyzer(text)[0]
-    if sentiment["label"] == "NEGATIVE" and sentiment["score"] > 0.9:
-        return "MEDIUM"
-    return "LOW"
-
-# Suggest specialist
-def suggest_specialist(text, sentiment_label):
-    text = text.lower()
-    if any(w in text for w in ["suicidal", "depressed", "anxious", "panic", "mental", "overwhelmed"]):
-        return "psychologist"
-    elif sentiment_label == "NEGATIVE":
-        return "mental-health"
-    return "general-physician"
-
-# Fetch doctors from Practo (or fallback)
-def fetch_doctors_live(specialist, city="chennai"):
-    try:
-        url = f"https://www.practo.com/{city}/{specialist}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
-        listings = soup.select(".listing-row")[:5]
-        doctors = []
-        for doc in listings:
-            name = doc.select_one("h2")
-            clinic = doc.select_one(".u-regular.u-color--grey-3")
-            fee = doc.select_one(".fees")
-            if name and clinic and fee:
-                doctors.append(f"{name.get_text(strip=True)} – {clinic.get_text(strip=True)} – {fee.get_text(strip=True)}")
-        return doctors if doctors else ["No doctors found."]
-    except Exception as e:
-        return [f"Could not fetch doctors: {str(e)}"]
 
 # Initialize chat history
 if "chat_history" not in st.session_state:
@@ -71,7 +32,7 @@ if user_input:
             model="gpt-3.5-turbo",  # or "gpt-4" if available
             messages=st.session_state.chat_history
         )
-        bot_reply = response["choices"][0]["message"]["content"]
+        bot_reply = response['choices'][0]['message']['content']
         st.session_state.chat_history.append({"role": "assistant", "content": bot_reply})
 
 # Display chat
