@@ -2,12 +2,20 @@ import streamlit as st
 from transformers import pipeline
 from bs4 import BeautifulSoup
 import requests
+import os
+
+# Set Hugging Face API Key
+from huggingface_hub import login
+
+# Hugging Face API Key setup (make sure your token is in secrets or environment variables)
+api_key = st.secrets["HUGGINGFACE_API_KEY"]
+login(token=api_key)
 
 # Initialize Hugging Face DialoGPT model for chat using text-generation task
-chatbot = pipeline("text-generation", model="microsoft/DialoGPT-medium")
+chatbot = pipeline("text-generation", model="microsoft/DialoGPT-medium", use_auth_token=True)
 
 # Initialize sentiment analysis model (for mood detection)
-sentiment_analyzer = pipeline("sentiment-analysis")
+sentiment_analyzer = pipeline("sentiment-analysis", use_auth_token=True)
 
 # Function to get doctors from Practo (top 5)
 def fetch_doctors_live(specialist, city="chennai"):
