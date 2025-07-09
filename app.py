@@ -1,73 +1,64 @@
 import streamlit as st
-from chatterbot import ChatBot
-from chatterbot.trainers import ChatterBotCorpusTrainer
-from textblob import TextBlob
+from deeppavlov import build_model, configs
 
-# Create a new chatbot instance (without spaCy logic)
-chatbot = ChatBot(
-    'DoctorBot',
-    storage_adapter='chatterbot.storage.SQLStorageAdapter',
-    logic_adapters=[
-        'chatterbot.logic.BestMatch',  # Keep BestMatch for simple responses
-        'chatterbot.logic.MathematicalEvaluation',  # For mathematical calculations (optional)
-        'chatterbot.logic.TimeLogicAdapter'  # Time-based responses (optional)
-    ],
-    database_uri='sqlite:///./chatbot_database.db',  # Store the DB locally in current directory
-    preprocessors=['chatterbot.preprocessors.clean_whitespace'],  # Clean input text before processing
-)
+# Load the sentiment analysis model
+sentiment_model = build_model(configs.classifiers.rubert_sentiment, download=True)
 
-# Train the chatbot with the English corpus
-trainer = ChatterBotCorpusTrainer(chatbot)
-trainer.train('chatterbot.corpus.english')
-
-# Function for sentiment analysis using TextBlob
-def get_sentiment(text):
-    blob = TextBlob(text)
-    sentiment_score = blob.sentiment.polarity
-    return sentiment_score
+# Load the conversational model
+dialogue_model = build_model(configs.dialogue.torch_dialogue, download=True)
 
 # Streamlit UI setup
-st.title("DoctorBot - Your Personal Assistant")
+st.title("Real-Time Conversational Chatbot with Sentiment Analysis")
+st.write("Type your message below and click 'Submit' to analyze sentiment!")
 
-# Initialize chat history in session state
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
+# Initialize chat history session state if not already initialized
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+if 'sentiment_scores' not in st.session_state:
+    st.session_state.sentiment_scores = []
 
-# Display the chat history
-if st.session_state.chat_history:
-    for message in st.session_state.chat_history:
-        st.write(message)
-
-# Collect user input
-user_input = st.text_input("Type your message:")
-
-# When user submits a message
-if user_input:
-    # Add user message to the history
-    st.session_state.chat_history.append(f"You: {user_input}")
-    
-    # Perform sentiment analysis on the input
-    sentiment_score = get_sentiment(user_input)
-    
-    # Generate chatbot's response using ChatterBot
-    bot_reply = chatbot.get_response(user_input)
-    
-    # Analyze mood based on sentiment
-    if sentiment_score > 0:
-        mood = "Positive"
-    elif sentiment_score < 0:
-        mood = "Negative"
+# Display previous chat messages
+for message in st.session_state.messages:
+    if message['sender'] == 'user':
+        st.write(f"**You**: {message['text']}")
     else:
-        mood = "Neutral"
-    
-    # Add bot reply and mood analysis to chat history
-    st.session_state.chat_history.append(f"Bot: {bot_reply}")
-    st.session_state.chat_history.append(f"Bot: Your mood is {mood} based on the analysis.")
-    
-    # Display the chat history
-    for message in st.session_state.chat_history:
-        st.write(message)
+        st.write(f"**Bot**: {message['text']}")
 
-# Add a "Reset Chat" button
-if st.button("Reset Chat"):
-    st.session_state.chat_history = []
+# Text input for user
+user_input = st.text_input("You:", "")
+
+# Add a Submit button to trigger sentiment analysis
+submit_button = st.button("Submit")
+
+# When user clicks submit, process the input
+if submit_button and user_input:
+    # Add user input to the chat history
+    st.session_state.messages.append({'sender': 'user', 'text': user_input})
+    
+    # Analyze sentiment of the user's message
+    sentiment = sentiment_model([user_input])  # Returns sentiment score
+    sentiment_score = sentiment[0][0]  # 1 for positive, -1 for negative
+    
+    # Add sentiment score to sentiment_scores
+    st.session_state.sentiment_scores.append(sentiment_score)
+
+    # Display sentiment score
+    sentiment_label = "Positive" if sentiment_score > 0 else "Negative"
+    st.write(f"Sentiment of your message: **{sentiment_label}** (Score: {sentiment_score})")
+
+    # Get bot response using the conversational model
+    bot_reply = dialogue_model([user_input])[0]  # Get bot response
+
+    # Add bot reply to chat history
+    st.session_state.messages.append({'sender': 'bot', 'text': bot_reply})
+
+    # Display bot's response
+    st.write(f"**Bot**: {bot_reply}")
+
+# Display sentiment summary when Submit is clicked
+if st.session_state.sentiment_scores:
+    positive_count = sum(1 for score in st.session_state.sentiment_scores if score > 0)
+    negative_count = sum(1 for score in st.session_state.sentiment_scores if score < 0)
+    st.write(f"**Sentiment Summary**:")
+    st.write(f"  - Positive Messages: {positive_count}")
+    st.write(f"  - Negative Messages: {negative_count}")
