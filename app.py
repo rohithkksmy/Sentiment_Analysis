@@ -1,4 +1,3 @@
-import streamlit as st
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
@@ -10,15 +9,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 # Set up conversation history
 conversation_history = []
 
-# Streamlit UI
-st.title("Chat with the AI")
-st.write("This is a simple chatbot built with Hugging Face's DialoGPT and Streamlit!")
-
-# Get user input
-user_input = st.text_input("You:", "")
-
-# Process and respond to user input
-if user_input:
+def generate_response(user_input):
     # Add the user's message to the conversation history
     conversation_history.append(f"User: {user_input}")
     
@@ -34,7 +25,10 @@ if user_input:
     # Decode the generated response and add it to conversation history
     bot_output = tokenizer.decode(chat_history_ids[:, bot_input_ids.shape[-1]:][0], skip_special_tokens=True)
     conversation_history.append(f"Bot: {bot_output}")
+    
+    return bot_output
 
-    # Display the conversation
-    st.text_area("Conversation History", value="\n".join(conversation_history), height=300)
-
+# Test
+user_input = "Hello, how are you?"
+response = generate_response(user_input)
+print("Bot:", response)
