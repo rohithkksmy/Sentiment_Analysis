@@ -1,46 +1,40 @@
 import streamlit as st
-from transformers import pipeline, Conversation
-import os
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
-# Access Hugging Face token from secrets
-hf_token = st.secrets["HUGGINGFACE_TOKEN"]["token"]
+# Load the pre-trained model and tokenizer from Hugging Face
+model_name = "microsoft/DialoGPT-medium"
+model = AutoModelForCausalLM.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-# Set the Hugging Face token for authentication (you can set it as an environment variable)
-os.environ["HUGGINGFACE_HUB_TOKEN"] = hf_token
-
-# Alternatively, you can log in with the token (if needed)
-# from huggingface_hub import login
-# login(token=hf_token)
-
-# Load a pre-trained conversational model (DialoGPT-medium)
-chatbot = pipeline("conversational", model="microsoft/DialoGPT-medium")
+# Set up conversation history
+conversation_history = []
 
 # Streamlit UI
-st.title("Simple Chatbot with Hugging Face")
-st.write("Ask me anything!")
+st.title("Chat with the AI")
+st.write("This is a simple chatbot built with Hugging Face's DialoGPT and Streamlit!")
 
-# Initialize conversation history if it doesn't exist
-if "conversation" not in st.session_state:
-    st.session_state.conversation = []
+# Get user input
+user_input = st.text_input("You:", "")
 
-# Function to get chatbot response
-def get_bot_response(user_input):
-    # Create a new Conversation instance
-    conversation = Conversation(user_input)
-    # Get bot response using the chatbot pipeline
-    bot_response = chatbot(conversation)
-    return bot_response[-1]['generated_text']
-
-# Display user input and bot response in the conversation history
-user_input = st.text_input("You: ", "")
-
+# Process and respond to user input
 if user_input:
-    # Get bot's response to user input
-    bot_response = get_bot_response(user_input)
-    # Add both user input and bot response to the session state
-    st.session_state.conversation.append(f"You: {user_input}")
-    st.session_state.conversation.append(f"Bot: {bot_response}")
+    # Add the user's message to the conversation history
+    conversation_history.append(f"User: {user_input}")
+    
+    # Tokenize the conversation history and the current user input
+    new_user_input_ids = tokenizer.encode(user_input + tokenizer.eos_token, return_tensors="pt")
 
-# Display chat history
-for message in st.session_state.conversation:
-    st.write(message)
+    # Append the new input to the conversation history
+    bot_input_ids = torch.cat([torch.tensor(conversation_history, dtype=torch.long), new_user_input_ids], dim=-1)
+
+    # Generate the chatbot's response
+    chat_history_ids = model.generate(bot_input_ids, max_length=1000, pad_token_id=tokenizer.eos_token_id)
+
+    # Decode the generated response and add it to conversation history
+    bot_output = tokenizer.decode(chat_history_ids[:, bot_input_ids.shape[-1]:][0], skip_special_tokens=True)
+    conversation_history.append(f"Bot: {bot_output}")
+
+    # Display the conversation
+    st.text_area("Conversation History", value="\n".join(conversation_history), height=300)
+
